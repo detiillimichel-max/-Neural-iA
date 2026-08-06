@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Teste AI-SERVER (Qwen Free)</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <div class="container">
+    <h2>🤖 Teste OIO AI-SERVER</h2>
+
+    <!-- Seletor do Tipo de Tarefa -->
+    <label for="typeSelect">Selecione o Modo:</label>
+    <select id="typeSelect">
+      <option value="chat">Conversação (qwen-2.5-72b)</option>
+      <option value="code">Código/Programação (qwen-2.5-coder)</option>
+      <option value="reasoning">Raciocínio Avançado (qwq-32b)</option>
+    </select>
+
+    <!-- Campo de Prompt -->
+    <label for="promptInput">Sua Pergunta / Mensagem:</label>
+    <textarea id="promptInput" rows="4" placeholder="Digite aqui a sua pergunta..."></textarea>
+
+    <!-- Botão de Enviar -->
+    <button id="sendBtn" onclick="testarIA()">Enviar Para o Server</button>
+
+    <!-- Exibição da Resposta -->
+    <div class="result-box">
+      <h3>Resposta:</h3>
+      <div id="output">Aguardando envio...</div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
