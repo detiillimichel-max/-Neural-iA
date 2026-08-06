@@ -3,36 +3,48 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Teste AI-SERVER (Qwen Free)</title>
+  <title>Neural-iA</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-
   <div class="container">
-    <h2>🤖 Teste OIO AI-SERVER</h2>
+    <h2>🤖 Neural-iA</h2>
 
-    <!-- Seletor do Tipo de Tarefa -->
-    <label for="typeSelect">Selecione o Modo:</label>
-    <select id="typeSelect">
-      <option value="chat">Conversação (qwen-2.5-72b)</option>
-      <option value="code">Código/Programação (qwen-2.5-coder)</option>
-      <option value="reasoning">Raciocínio Avançado (qwq-32b)</option>
-    </select>
+    <section id="authBox">
+      <label for="emailInput">E-mail</label>
+      <input id="emailInput" type="email" autocomplete="email" placeholder="seu@email.com">
+      <label for="passwordInput">Senha</label>
+      <input id="passwordInput" type="password" autocomplete="current-password" placeholder="Sua senha">
+      <div class="auth-actions">
+        <button id="loginBtn" type="button">Entrar</button>
+        <button id="signupBtn" type="button" class="secondary">Criar conta</button>
+      </div>
+      <div id="authStatus" class="status">Verificando sessão...</div>
+    </section>
 
-    <!-- Campo de Prompt -->
-    <label for="promptInput">Sua Pergunta / Mensagem:</label>
-    <textarea id="promptInput" rows="4" placeholder="Digite aqui a sua pergunta..."></textarea>
+    <section id="aiBox" hidden>
+      <label for="typeSelect">Selecione o Modo:</label>
+      <select id="typeSelect">
+        <option value="chat">Conversação</option>
+        <option value="code">Código/Programação</option>
+        <option value="reasoning">Raciocínio Avançado</option>
+      </select>
 
-    <!-- Botão de Enviar -->
-    <button id="sendBtn" onclick="testarIA()">Enviar Para o Server</button>
+      <label for="promptInput">Sua Pergunta / Mensagem:</label>
+      <textarea id="promptInput" rows="4" placeholder="Digite aqui a sua pergunta..."></textarea>
+      <button id="sendBtn" type="button">Enviar para Neural-iA</button>
+      <button id="logoutBtn" type="button" class="secondary">Sair</button>
 
-    <!-- Exibição da Resposta -->
-    <div class="result-box">
-      <h3>Resposta:</h3>
-      <div id="output">Aguardando envio...</div>
-    </div>
+      <div class="result-box">
+        <h3>Resposta:</h3>
+        <div id="output">Aguardando envio...</div>
+      </div>
+    </section>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-config.js"></script>
+  <script src="neural-api.js"></script>
   <script src="script.js"></script>
 </body>
 </html>
