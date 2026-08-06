@@ -51,9 +51,25 @@ async function testarIA() {
   }
 }
 
+async function searchGateway() {
+  const query = $("promptInput").value.trim();
+  if (!query) return $("output").textContent = "Digite um termo para buscar.";
+  const btn = $("sendBtn");
+  btn.disabled = true;
+  $("output").textContent = "Buscando no gateway...";
+  try {
+    const data = await NeuralAPI.invoke("neural-search", { type: "assistant", query });
+    $("output").textContent = JSON.stringify(data, null, 2);
+  } catch (error) {
+    $("output").textContent = `Erro: ${error.message}`;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
 $("loginBtn").addEventListener("click", () => auth("login"));
 $("signupBtn").addEventListener("click", () => auth("signup"));
-$("sendBtn").addEventListener("click", testarIA);
+$("sendBtn").addEventListener("click", searchGateway);
 $("logoutBtn").addEventListener("click", async () => { await NeuralAPI.signOut(); await refreshSession(); });
 
 try {
