@@ -3,14 +3,25 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0d0d0d">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Neural-iA">
   <title>Neural-iA</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <div class="container">
-    <h2>🤖 Neural-iA</h2>
+    <header class="app-header">
+      <button id="menuBtn" type="button" class="icon-btn" aria-label="Abrir menu">☰</button>
+      <h2>Neural-iA</h2>
+      <button id="searchModeBtn" type="button" class="icon-btn" aria-label="Usar neural-search">⌕</button>
+    </header>
 
-    <section id="authBox">
+    <section id="authBox" class="card">
       <label for="emailInput">E-mail</label>
       <input id="emailInput" type="email" autocomplete="email" placeholder="seu@email.com">
       <label for="passwordInput">Senha</label>
@@ -19,27 +30,57 @@
         <button id="loginBtn" type="button">Entrar</button>
         <button id="signupBtn" type="button" class="secondary">Criar conta</button>
       </div>
+      <button id="resendBtn" type="button" class="secondary" hidden>Reenviar confirmação</button>
       <div id="authStatus" class="status">Verificando sessão...</div>
     </section>
 
-    <section id="aiBox" hidden>
-      <label for="typeSelect">Selecione o Modo:</label>
-      <select id="typeSelect">
-        <option value="chat">Conversação</option>
-        <option value="code">Código/Programação</option>
-        <option value="reasoning">Raciocínio Avançado</option>
-      </select>
+    <nav id="drawer" class="drawer" hidden>
+      <button type="button" data-target="home">Home</button>
+      <button type="button" data-target="ai">IA</button>
+      <button type="button" data-target="videos">Vídeos</button>
+      <button type="button" data-target="books">Biblioteca</button>
+      <button type="button" data-target="history">Histórico</button>
+      <button type="button" data-target="favorites">Favoritos</button>
+      <button type="button" data-target="settings">Configurações</button>
+      <button type="button" data-target="account">Conta</button>
+    </nav>
 
-      <label for="promptInput">Sua Pergunta / Mensagem:</label>
-      <textarea id="promptInput" rows="4" placeholder="Digite aqui a sua pergunta..."></textarea>
-      <button id="sendBtn" type="button">Enviar para Neural-iA</button>
-      <button id="logoutBtn" type="button" class="secondary">Sair</button>
+    <main id="appShell" hidden>
+      <section id="homeView" class="card view">
+        <p class="welcome">Olá! O que você quer explorar hoje?</p>
+        <div class="chips">
+          <button type="button" class="chip" data-category="videos">Vídeos</button>
+          <button type="button" class="chip" data-category="books">Livros</button>
+          <button type="button" class="chip" data-category="science">Ciência</button>
+          <button type="button" class="chip" data-category="world">Mundo</button>
+          <button type="button" class="chip" data-category="life">Vida</button>
+          <button type="button" class="chip" data-category="assistant">IA</button>
+        </div>
+      </section>
 
-      <div class="result-box">
-        <h3>Resposta:</h3>
-        <div id="output">Aguardando envio...</div>
-      </div>
-    </section>
+      <section id="aiView" class="card view">
+        <label for="typeSelect">Selecione o Modo:</label>
+        <select id="typeSelect">
+          <option value="chat">Conversação</option>
+          <option value="code">Código/Programação</option>
+          <option value="reasoning">Raciocínio Avançado</option>
+        </select>
+        <label for="promptInput">Sua Pergunta / Mensagem:</label>
+        <textarea id="promptInput" rows="4" placeholder="Digite aqui a sua pergunta..."></textarea>
+        <div class="action-row">
+          <button id="sendBtn" type="button">Enviar</button>
+          <button id="logoutBtn" type="button" class="secondary">Sair</button>
+        </div>
+        <div class="result-box">
+          <h3>Resposta:</h3>
+          <div id="output">Aguardando envio...</div>
+        </div>
+      </section>
+
+      <section id="statusBar" class="status-bar card">
+        <span id="statusText">Pronto.</span>
+      </section>
+    </main>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
