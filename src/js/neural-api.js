@@ -4,22 +4,37 @@
 // Camada de comunicação com as Edge Functions
 // ==========================================================
 
-// Será configurado quando o Supabase for integrado.
-const SUPABASE_URL = "";
-const SUPABASE_ANON_KEY = "";
+import { supabase } from "./supabase-config.js";
 
 /**
  * Envia uma mensagem para a Edge Function ai-server_chat
  */
-async function askNeural(prompt) {
+export async function askNeural(prompt) {
 
-    console.log("Pergunta:", prompt);
+    try {
 
-    // Temporário.
-    // No próximo passo entra fetch() para o Supabase.
-    return {
-        success: true,
-        answer: "Neural-iA conectado. Em breve responderá pela Edge Function."
-    };
+        const { data, error } = await supabase.functions.invoke(
+            "ai-server_chat",
+            {
+                body: {
+                    prompt
+                }
+            }
+        );
+
+        if (error) throw error;
+
+        return data;
+
+    } catch (err) {
+
+        console.error(err);
+
+        return {
+            success: false,
+            answer: "Erro ao comunicar com o Neural-iA."
+        };
+
+    }
 
 }
