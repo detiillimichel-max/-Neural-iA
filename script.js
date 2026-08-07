@@ -1,22 +1,22 @@
 const $ = id => document.getElementById(id);
 
-function setAuthUI(session) {
-  const logged = Boolean(session?.user);
-  $("aiBox").hidden = !logged;
-  $("emailInput").disabled = logged;
-  $("passwordInput").disabled = logged;
-  $("loginBtn").hidden = logged;
-  $("signupBtn").hidden = logged;
-  $("resendBtn").hidden = logged;
-  $("authStatus").textContent = logged ? `Conectado: ${session.user.email || "usuário"}` : "Entre para usar o motor Neural-iA.";
+function setText(id, text) {
+  const el = $(id);
+  if (el) el.textContent = text;
 }
 
-function friendlyAuthMessage(error) {
-  const msg = String(error?.message || error || "");
-  if (/email not confirmed/i.test(msg)) return "Seu e-mail ainda não foi confirmado. Verifique a caixa de entrada e o spam.";
-  if (/invalid login credentials/i.test(msg)) return "E-mail ou senha inválidos.";
-  if (/signup disabled/i.test(msg)) return "Cadastro desativado neste momento.";
-  return msg || "Erro de autenticação.";
+function show(id, visible) {
+  const el = $(id);
+  if (!el) return;
+  el.classList.toggle("hidden", !visible);
+}
+
+function setAuthUI(session) {
+  const logged = Boolean(session?.user);
+  show("authBox", !logged);
+  show("appShell", logged);
+  show("resendBtn", false);
+  setText("authStatus", logged ? `Conectado: ${session.user.email || "usuário"}` : "Entre para usar o motor Neural-iA.");
 }
 
 async function refreshSession() {
@@ -24,63 +24,113 @@ async function refreshSession() {
     const session = await NeuralAPI.session();
     setAuthUI(session);
   } catch (error) {
-    $("authStatus").textContent = friendlyAuthMessage(error);
+    setText("authStatus", error.message);
   }
+}
+
+function authErrorMessage(error) {
+  const msg = String(error?.message || "");
+  if (/Email not confirmed/i.test(msg)) return "Seu e-mail ainda não foi confirmado. Verifique a caixa de entrada/spam ou reenviamos a confirmação.";
+  if (/Invalid login credentials/i.test(msg)) return "E-mail ou senha inválidos.";
+  if (/already registered/i.test(msg)) return "Esta conta já existe. Tente entrar ou reenviar confirmação.";
+  return `Erro: ${msg || "não foi possível autenticar"}`;
 }
 
 async function auth(action) {
   const email = $("emailInput").value.trim();
   const password = $("passwordInput").value;
-  if (!email || !password) return $("authStatus").textContent = "Informe e-mail e senha.";
+  if (!email || !password) return setText("authStatus", "Informe e-mail e senha.");
   try {
-    $("authStatus").textContent = "Processando...";
-    if (action === "signup") await NeuralAPI.signUp(email, password);
-    else await NeuralAPI.signIn(email, password);
+    setText("authStatus", "Processando...");
+    if (action === "signup") {
+      await NeuralAPI.signUp(email, password);
+      setText("authStatus", "Conta criada. Verifique seu e-mail para confirmar o cadastro.");
+      show("resendBtn", true);
+      return;
+    }
+    await NeuralAPI.signIn(email, password);
     await refreshSession();
-    if (action === "signup") $("authStatus").textContent = "Conta criada. Verifique seu e-mail para confirmar o cadastro.";
   } catch (error) {
-    $("authStatus").textContent = friendlyAuthMessage(error);
+    setText("authStatus", authErrorMessage(error));
+    show("resendBtn", /Email not confirmed/i.test(String(error?.message || "")));
   }
 }
 
 async function resendConfirmation() {
   const email = $("emailInput").value.trim();
-  if (!email) return $("authStatus").textContent = "Digite seu e-mail para reenviar a confirmação.";
+  if (!email) return setText("authStatus", "Informe o e-mail para reenviar a confirmação.");
   try {
-    $("authStatus").textContent = "Reenviando confirmação...";
-    const { error } = await NeuralAPI.getClient().auth.resend({ type: "signup", email });
-    if (error) throw error;
-    $("authStatus").textContent = "E-mail de confirmação reenviado.";
+    setText("authStatus", "Reenviando confirmação...");
+    await NeuralAPI.getClient().auth.resend({ type: "signup", email });
+    setText("authStatus", "E-mail de confirmação reenviado. Verifique sua caixa de entrada/spam.");
   } catch (error) {
-    $("authStatus").textContent = friendlyAuthMessage(error);
+    setText("authStatus", `Erro ao reenviar: ${error.message}`);
   }
 }
 
 async function searchGateway() {
   const query = $("promptInput").value.trim();
-  if (!query) return $("output").textContent = "Digite um termo para buscar.";
+  if (!query) return setText("output", "Digite um termo para buscar.");
   const btn = $("sendBtn");
   btn.disabled = true;
-  $("output").textContent = "Buscando no gateway...";
+  setText("statusText", "Buscando no gateway...");
+  setText("output", "Buscando no gateway...");
   try {
     const data = await NeuralAPI.invoke("neural-search", { type: "assistant", query });
-    $("output").textContent = JSON.stringify(data, null, 2);
+    setText("output", JSON.stringify(data, null, 2));
+    setText("statusText", "Busca concluída.");
   } catch (error) {
-    $("output").textContent = `Erro: ${error.message}`;
+    setText("output", `Erro: ${error.message}`);
+    setText("statusText", "Falha na busca.");
   } finally {
     btn.disabled = false;
   }
 }
 
-$("loginBtn").addEventListener("click", () => auth("login"));
-$("signupBtn").addEventListener("click", () => auth("signup"));
-$("resendBtn").addEventListener("click", resendConfirmation);
-$("sendBtn").addEventListener("click", searchGateway);
-$("logoutBtn").addEventListener("click", async () => { await NeuralAPI.signOut(); await refreshSession(); });
+async function callAI() {
+  const prompt = $("promptInput").value.trim();
+  const type = $("typeSelect").value;
+  if (!prompt) return setText("output", "Digite uma pergunta.");
+  const btn = $("sendBtn");
+  btn.disabled = true;
+  setText("statusText", "Pensando...");
+  setText("output", "Pensando...");
+  try {
+    const data = await NeuralAPI.callAI(prompt, type);
+    const answer = data?.response ?? data?.answer ?? data?.message ?? data?.choices?.[0]?.message?.content;
+    setText("output", typeof answer === "string" ? answer : JSON.stringify(data, null, 2));
+    setText("statusText", "Resposta recebida.");
+  } catch (error) {
+    setText("output", error.message === "AUTH_REQUIRED" ? "Sessão expirada. Entre novamente." : `Erro: ${error.message}`);
+    setText("statusText", "Falha na IA.");
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function toggleDrawer() {
+  const drawer = $("drawer");
+  if (drawer) drawer.classList.toggle("hidden");
+}
+
+function bindUI() {
+  $("loginBtn")?.addEventListener("click", () => auth("login"));
+  $("signupBtn")?.addEventListener("click", () => auth("signup"));
+  $("resendBtn")?.addEventListener("click", resendConfirmation);
+  $("sendBtn")?.addEventListener("click", searchGateway);
+  $("logoutBtn")?.addEventListener("click", async () => { await NeuralAPI.signOut(); await refreshSession(); });
+  $("menuBtn")?.addEventListener("click", toggleDrawer);
+  $("searchModeBtn")?.addEventListener("click", () => setText("statusText", "Modo de busca universal ativo."));
+  document.querySelectorAll("[data-category]").forEach(btn => btn.addEventListener("click", () => {
+    const category = btn.getAttribute("data-category");
+    setText("statusText", `Categoria selecionada: ${category}`);
+  }));
+}
 
 try {
   NeuralAPI.getClient().auth.onAuthStateChange((_event, session) => setAuthUI(session));
+  bindUI();
   refreshSession();
 } catch (error) {
-  $("authStatus").textContent = `Configuração pendente: ${friendlyAuthMessage(error)}`;
+  setText("authStatus", `Configuração pendente: ${error.message}`);
 }
