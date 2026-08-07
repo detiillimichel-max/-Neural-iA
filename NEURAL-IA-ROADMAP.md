@@ -10,7 +10,7 @@
 
 ## Objetivo
 
-Construir um Super App inteligente inspirado nas melhores experiências de IA e streaming, utilizando APIs públicas, Edge Functions e IA.
+Construir um Super App inteligente inspirado nas melhores experiências de IA, streaming e descoberta de conteúdo, utilizando APIs públicas, Edge Functions, Supabase e IA.
 
 ---
 
@@ -24,6 +24,7 @@ Construir um Super App inteligente inspirado nas melhores experiências de IA e 
 - [x] Arquitetura modular
 - [x] Camada central de consumo
 - [x] `neural-search` criada
+- [x] Gateway unificado entre categorias
 
 ### Edge Functions
 
@@ -42,6 +43,7 @@ Construir um Super App inteligente inspirado nas melhores experiências de IA e 
 - [x] `peertube-videos`
 - [x] `dailymotion-videos`
 - [x] `vimeo-videos`
+- [x] `tmdb-media`
 
 #### Ciência
 - [x] `nasa`
@@ -75,10 +77,16 @@ Construir um Super App inteligente inspirado nas melhores experiências de IA e 
 - [x] `neural-api.js`
 - [x] `supabase-config.js`
 - [x] chamada autenticada
+- [x] gateway `neural-search` como rota principal
+
+### Documentação
+
+- [x] Roadmap oficial criado
+- [x] Regra de versionar melhorias no roadmap
 
 ---
 
-## APIs integradas
+## 📚 APIs integradas
 
 ### Streaming
 - YouTube
@@ -86,6 +94,7 @@ Construir um Super App inteligente inspirado nas melhores experiências de IA e 
 - PeerTube
 - Dailymotion
 - Internet Archive
+- TMDB (metadados de mídia)
 
 ### Livros
 - Open Library
@@ -115,6 +124,58 @@ Construir um Super App inteligente inspirado nas melhores experiências de IA e 
 - Advice Slip
 - Quotable
 - Bíblia Digital
+
+---
+
+## 🔌 Sistema de módulos / plugins
+
+O Neural-iA foi pensado para funcionar como um **Neural Hub**: cada funcionalidade principal vira um módulo ativável, consultado dinamicamente pelo app.
+
+### Módulos previstos
+- Neural IA
+- Neural Vídeos
+- Neural Books
+- Neural Clima
+- Neural Ciência
+- Neural Receitas
+- Neural Biblioteca
+- Neural Favoritos
+- Neural Configurações
+- Neural Histórico
+
+### Tabelas planejadas para suportar plugins
+- `plugins`
+- `api_sources`
+- `categories`
+- `search_cache`
+- `user_settings`
+- `collections`
+- `history`
+- `favorites`
+- `chat_sessions`
+- `chat_messages`
+- `profiles`
+
+---
+
+## 🔊 Sons e sonorização
+
+### Regra aprovada
+O app terá som apenas para eventos relevantes, sem poluir a experiência.
+
+### Eventos com som
+- Conteúdo novo encontrado pelas Edge Functions
+- Mensagem recebida quando o usuário estiver em outro app ou em segundo plano
+- Recomendações novas
+- Efeitos curtos de recursos e ações importantes
+
+### Eventos sem som
+- Navegação comum
+- Interações repetitivas
+- Resultados já conhecidos em cache
+
+### Objetivo
+Criar uma camada de **Neural Sound** com controle de volume, ativação/desativação e sons leves para interface e notificações.
 
 ---
 
@@ -198,7 +259,7 @@ Construir um Super App inteligente inspirado nas melhores experiências de IA e 
 
 ---
 
-## Objetivo final
+## 🎯 Objetivo final
 
 Criar um Super App inteligente onde o usuário tenha acesso a:
 
