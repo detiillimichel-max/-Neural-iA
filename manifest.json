@@ -1,16 +1,16 @@
 {
   "name": "Neural-iA",
   "short_name": "Neural-iA",
-  "description": "Super app de IA, vídeos, livros e pesquisa universal.",
-  "start_url": "/",
-  "scope": "/",
+  "description": "Super app de IA, vídeos, livros e pesquisa universal",
+
+  "start_url": "/-Neural-iA/",
+  "scope": "/-Neural-iA/",
+
   "display": "standalone",
-  "display_override": [
-    "standalone",
-    "window-controls-overlay"
-  ],
+  "display_override": ["standalone"],
   "orientation": "portrait-primary",
   "lang": "pt-BR",
+
   "theme_color": "#0d0d0d",
   "background_color": "#0d0d0d",
 
@@ -19,7 +19,7 @@
       "src": "icons/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
       "src": "icons/icon-512.png",
@@ -30,42 +30,43 @@
     {
       "src": "icons/apple-touch-icon.png",
       "sizes": "180x180",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     },
     {
       "src": "icons/favicon-32.png",
       "sizes": "32x32",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     },
     {
       "src": "icons/favicon-16.png",
       "sizes": "16x16",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     }
   ],
 
   "shortcuts": [
     {
       "name": "Nova conversa",
-      "url": "/#ai"
+      "short_name": "Nova conversa",
+      "url": "/-Neural-iA/#ai",
+      "description": "Abrir o chat da IA"
     },
     {
       "name": "Vídeos",
-      "url": "/#videos"
+      "short_name": "Vídeos",
+      "url": "/-Neural-iA/#videos",
+      "description": "Abrir a área de vídeos"
     },
     {
       "name": "Biblioteca",
-      "url": "/#books"
+      "short_name": "Biblioteca",
+      "url": "/-Neural-iA/#books",
+      "description": "Abrir a biblioteca"
     }
   ],
-
-  "categories": [
-    "productivity",
-    "education",
-    "entertainment"
-  ],
-
-  "prefer_related_applications": false,
 
   "screenshots": []
 }
