@@ -3,7 +3,8 @@
 <head>
 
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0d0d0d">
 
 <title>Neural-iA</title>
 
@@ -15,43 +16,41 @@
 
 <header class="topbar">
 
-<button id="backButton">
-☰
-</button>
+    <button id="backButton" type="button" aria-label="Voltar">
+        ☰
+    </button>
 
-<h1>Neural-iA</h1>
+    <h1>Neural-iA</h1>
 
-<button id="newChat">
-＋
-</button>
+    <button id="newChat" type="button" aria-label="Nova conversa">
+        ＋
+    </button>
 
 </header>
 
-<main id="chat">
+<main id="chat-messages" aria-live="polite" aria-label="Conversa com Neural-iA">
 
-<div class="welcome">
+    <div class="welcome">
 
-<h2>Olá 👋</h2>
+        <h2>Olá 👋</h2>
 
-<p>Como posso ajudar você hoje?</p>
+        <p>Como posso ajudar você hoje?</p>
 
-</div>
+    </div>
 
 </main>
 
 <footer class="composer">
 
-<textarea
-id="prompt"
-placeholder="Pergunte qualquer coisa..."
-rows="1">
-</textarea>
+    <textarea
+        id="chat-input"
+        placeholder="Pergunte qualquer coisa..."
+        rows="1"
+        aria-label="Mensagem para o Neural-iA"></textarea>
 
-<button id="sendButton">
-
-Enviar
-
-</button>
+    <button id="send-button" type="button">
+        Enviar
+    </button>
 
 </footer>
 
