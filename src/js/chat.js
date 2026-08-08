@@ -4,25 +4,24 @@
 // Controlador da interface do chat
 // ==========================================================
 
-import { askNeural } from "./neural-api.js";
+import { askNeural, AI_MODES } from "./neural-api.js";
 
 const messages = document.getElementById("chat-messages");
 const input = document.getElementById("chat-input");
 const sendButton = document.getElementById("send-button");
 
-const modelButton = document.getElementById("model-button");
-const modelPanel = document.getElementById("model-panel");
+const modelSelector = document.getElementById("modelSelector");
+const modelPanel = document.getElementById("modelPanel");
 const modelOptions = document.querySelectorAll("[data-model]");
-const modelLabel = document.getElementById("model-label");
+const selectedModelLabel = document.getElementById("selectedModel");
 
-const toolsButton = document.getElementById("tools-button");
-const toolsPanel = document.getElementById("tools-panel");
+const toolsButton = document.getElementById("toolsButton");
+const toolsPanel = document.getElementById("toolsPanel");
+const microphoneButton = document.getElementById("microphoneButton");
+const newChatButton = document.getElementById("newChat");
+const backButton = document.getElementById("backButton");
 
-const newChatButton = document.getElementById("new-chat-button");
-const backButton = document.getElementById("back-button");
-const micButton = document.getElementById("mic-button");
-
-let selectedModel = "CHAT";
+let selectedMode = AI_MODES.CHAT;
 let isBusy = false;
 
 function addMessage(text, type = "ai") {
@@ -46,38 +45,54 @@ function setBusy(value) {
         sendButton.setAttribute("aria-busy", String(value));
     }
 
-    if (input) {
-        input.disabled = value;
-    }
+    if (input) input.disabled = value;
 }
 
 function closePanels() {
     if (modelPanel) modelPanel.hidden = true;
     if (toolsPanel) toolsPanel.hidden = true;
+
+    if (modelSelector) modelSelector.setAttribute("aria-expanded", "false");
+    if (toolsButton) toolsButton.setAttribute("aria-expanded", "false");
 }
 
-function togglePanel(panel) {
+function togglePanel(panel, trigger) {
     if (!panel) return;
 
     const willOpen = panel.hidden;
     closePanels();
     panel.hidden = !willOpen;
+
+    if (trigger) trigger.setAttribute("aria-expanded", String(willOpen));
 }
 
-function selectModel(model, label) {
-    selectedModel = model;
+function getModeLabel(mode) {
+    return {
+        chat: "Qwen",
+        code: "Qwen Coder",
+        reasoning: "QwQ",
+        vision: "Qwen Vision"
+    }[mode] || "Qwen";
+}
 
-    if (modelLabel && label) {
-        modelLabel.textContent = label;
+function selectMode(mode, label) {
+    const normalized = String(mode || AI_MODES.CHAT).toLowerCase();
+
+    if (!Object.values(AI_MODES).includes(normalized)) return;
+
+    selectedMode = normalized;
+
+    if (selectedModelLabel) {
+        selectedModelLabel.textContent = label || getModeLabel(normalized);
     }
 
     modelOptions.forEach((option) => {
-        const active = option.dataset.model === model;
-        option.classList.toggle("active", active);
+        const active = option.dataset.model === normalized;
+        option.classList.toggle("is-selected", active);
         option.setAttribute("aria-selected", String(active));
     });
 
-    if (modelPanel) modelPanel.hidden = true;
+    closePanels();
 }
 
 async function sendMessage() {
@@ -95,59 +110,49 @@ async function sendMessage() {
 
     try {
         const result = await askNeural(text, {
-            model: selectedModel
+            type: selectedMode
         });
 
         if (thinking) thinking.remove();
 
-        const answer = extractAnswer(result);
-        addMessage(answer, "ai");
+        if (!result?.success) {
+            addMessage(
+                result?.answer || "Não foi possível obter uma resposta agora.",
+                "ai error"
+            );
+            return;
+        }
+
+        addMessage(
+            result.answer || "O Neural-iA recebeu a solicitação, mas não retornou texto.",
+            "ai"
+        );
     } catch (error) {
         console.error("Neural-iA chat error:", error);
 
         if (thinking) thinking.remove();
 
-        addMessage(
-            "Não foi possível obter uma resposta agora. Verifique a conexão com o Neural-iA.",
-            "ai error"
-        );
+        addMessage("Não foi possível comunicar com o Neural-iA.", "ai error");
     } finally {
         setBusy(false);
         input.focus();
     }
 }
 
-function extractAnswer(result) {
-    if (!result) {
-        return "O Neural-iA não retornou uma resposta.";
-    }
-
-    if (typeof result === "string") {
-        return result;
-    }
-
-    if (result.answer) return result.answer;
-    if (result.response) return result.response;
-    if (result.message) return result.message;
-
-    if (result.data) {
-        if (typeof result.data === "string") return result.data;
-        if (result.data.answer) return result.data.answer;
-        if (result.data.response) return result.data.response;
-    }
-
-    return "Recebi uma resposta, mas não consegui interpretar o formato retornado pela Edge Function.";
-}
-
 function startNewChat() {
     if (!messages) return;
 
     messages.innerHTML = `
-        <div class="welcome">
-            <h2>Olá 👋</h2>
-            <p>Como posso ajudar você hoje?</p>
-        </div>
+        <section class="welcome" aria-label="Boas-vindas">
+            <div class="neural-mark" aria-hidden="true">
+                <i data-lucide="sparkles"></i>
+            </div>
+            <h2>Neural-iA</h2>
+            <p>O que você quer fazer hoje?</p>
+        </section>
     `;
+
+    if (window.lucide) window.lucide.createIcons();
 
     if (input) {
         input.value = "";
@@ -168,19 +173,17 @@ function goBack() {
 }
 
 function setupMicrophone() {
-    if (!micButton) return;
+    if (!microphoneButton) return;
 
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        micButton.disabled = true;
-        micButton.title = "Microfone não disponível neste navegador";
-        return;
-    }
+    microphoneButton.addEventListener("click", async () => {
+        if (!navigator.mediaDevices?.getUserMedia) {
+            addMessage("O microfone não está disponível neste navegador.", "ai error");
+            return;
+        }
 
-    micButton.addEventListener("click", async () => {
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             stream.getTracks().forEach((track) => track.stop());
-
             addMessage("Microfone autorizado. O reconhecimento de voz será conectado na próxima etapa.", "ai");
         } catch (error) {
             console.warn("Microphone permission:", error);
@@ -188,9 +191,21 @@ function setupMicrophone() {
     });
 }
 
-if (sendButton) {
-    sendButton.addEventListener("click", sendMessage);
+function setupToolButtons() {
+    document.querySelectorAll("[data-close-tools]").forEach((button) => {
+        button.addEventListener("click", closePanels);
+    });
+
+    document.querySelectorAll("[data-tool]").forEach((button) => {
+        button.addEventListener("click", () => {
+            const tool = button.dataset.tool;
+            closePanels();
+            addMessage(`Ferramenta selecionada: ${tool}. A integração será conectada na próxima etapa.`, "ai");
+        });
+    });
 }
+
+if (sendButton) sendButton.addEventListener("click", sendMessage);
 
 if (input) {
     input.addEventListener("keydown", (event) => {
@@ -206,61 +221,55 @@ if (input) {
     });
 }
 
-if (modelButton) {
-    modelButton.addEventListener("click", () => togglePanel(modelPanel));
+if (modelSelector) {
+    modelSelector.addEventListener("click", () => togglePanel(modelPanel, modelSelector));
 }
 
 modelOptions.forEach((option) => {
     option.addEventListener("click", () => {
-        selectModel(option.dataset.model, option.dataset.label || option.textContent.trim());
+        selectMode(
+            option.dataset.model,
+            option.querySelector("strong")?.textContent || getModeLabel(option.dataset.model)
+        );
     });
 });
 
 if (toolsButton) {
-    toolsButton.addEventListener("click", () => togglePanel(toolsPanel));
+    toolsButton.addEventListener("click", () => togglePanel(toolsPanel, toolsButton));
 }
 
-if (newChatButton) {
-    newChatButton.addEventListener("click", startNewChat);
-}
-
-if (backButton) {
-    backButton.addEventListener("click", goBack);
-}
+if (newChatButton) newChatButton.addEventListener("click", startNewChat);
+if (backButton) backButton.addEventListener("click", goBack);
 
 document.addEventListener("click", (event) => {
     const target = event.target;
 
+    if (target.closest("[data-close-panel]") || target.closest("[data-close-tools]")) {
+        closePanels();
+        return;
+    }
+
     if (
         modelPanel &&
         !modelPanel.hidden &&
-        modelButton &&
         !modelPanel.contains(target) &&
-        !modelButton.contains(target)
+        !modelSelector?.contains(target)
     ) {
         modelPanel.hidden = true;
+        modelSelector?.setAttribute("aria-expanded", "false");
     }
 
     if (
         toolsPanel &&
         !toolsPanel.hidden &&
-        toolsButton &&
         !toolsPanel.contains(target) &&
-        !toolsButton.contains(target)
+        !toolsButton?.contains(target)
     ) {
         toolsPanel.hidden = true;
+        toolsButton?.setAttribute("aria-expanded", "false");
     }
 });
 
 setupMicrophone();
-
-if (modelOptions.length > 0) {
-    const defaultOption = Array.from(modelOptions).find(
-        (option) => option.dataset.model === selectedModel
-    ) || modelOptions[0];
-
-    selectModel(
-        defaultOption.dataset.model,
-        defaultOption.dataset.label || defaultOption.textContent.trim()
-    );
-}
+setupToolButtons();
+selectMode(AI_MODES.CHAT, getModeLabel(AI_MODES.CHAT));
