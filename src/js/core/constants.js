@@ -28,6 +28,8 @@ export const SUPABASE = {
 // Edge Functions
 // ------------------------------
 
+// Os nomes abaixo devem corresponder exatamente aos slugs
+// das Edge Functions existentes no projeto Supabase.
 export const EDGE = {
 
     AI: "ai-server_chat",
@@ -47,6 +49,8 @@ export const EDGE = {
     PEERTUBE: "peertube-videos",
 
     DAILYMOTION: "dailymotion-videos",
+
+    TWITCH: "twitch-streams",
 
     VIMEO: "vimeo-videos",
 
@@ -90,20 +94,28 @@ export const EDGE = {
 
 export const MODELS = {
 
+    // Conversação / texto geral
     CHAT: "qwen/qwen-plus:free",
 
+    // Programação / código
     CODER: "qwen/qwen-2.5-coder-32b-instruct:free",
 
+    // Raciocínio avançado
     REASONING: "qwen/qwq-32b:free",
 
+    // Visão / multimodal
     VISION: "qwen/qwen-2-vl-72b-instruct:free",
 
+    // OCR / leitura visual
     OCR: "qwen/qwen-2-vl-72b-instruct:free",
 
+    // Geração de imagem
     IMAGE: "qwen-image",
 
+    // Geração de vídeo
     VIDEO: "wan2.1-t2v-turbo",
 
+    // Modelos alternativos gratuitos
     DEEPSEEK_CHAT: "deepseek/deepseek-chat:free",
 
     DEEPSEEK_REASONING: "deepseek/deepseek-r1:free",
