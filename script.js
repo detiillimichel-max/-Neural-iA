@@ -30,7 +30,7 @@ async function refreshSession() {
 
 function authErrorMessage(error) {
   const msg = String(error?.message || "");
-  if (/Email not confirmed/i.test(msg)) return "Seu e-mail ainda não foi confirmado. Verifique a caixa de entrada/spam ou reenviamos a confirmação.";
+  if (/Email not confirmed/i.test(msg)) return "Seu e-mail ainda não foi confirmado. Verifique a caixa de entrada/spam ou reenvie a confirmação.";
   if (/Invalid login credentials/i.test(msg)) return "E-mail ou senha inválidos.";
   if (/already registered/i.test(msg)) return "Esta conta já existe. Tente entrar ou reenviar confirmação.";
   return `Erro: ${msg || "não foi possível autenticar"}`;
@@ -113,6 +113,28 @@ function toggleDrawer() {
   if (drawer) drawer.classList.toggle("hidden");
 }
 
+function closeDrawer() {
+  const drawer = $("drawer");
+  if (drawer) drawer.classList.add("hidden");
+}
+
+function navigateMenu(target) {
+  switch (target) {
+    case "home":
+      closeDrawer();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+
+    case "ai":
+      window.location.href = "src/pages/ia.html";
+      return;
+
+    default:
+      closeDrawer();
+      setText("statusText", `${target} está em desenvolvimento. A estrutura será conectada ao próximo módulo.`);
+  }
+}
+
 function bindUI() {
   $("loginBtn")?.addEventListener("click", () => auth("login"));
   $("signupBtn")?.addEventListener("click", () => auth("signup"));
@@ -121,10 +143,17 @@ function bindUI() {
   $("logoutBtn")?.addEventListener("click", async () => { await NeuralAPI.signOut(); await refreshSession(); });
   $("menuBtn")?.addEventListener("click", toggleDrawer);
   $("searchModeBtn")?.addEventListener("click", () => setText("statusText", "Modo de busca universal ativo."));
+
   document.querySelectorAll("[data-category]").forEach(btn => btn.addEventListener("click", () => {
     const category = btn.getAttribute("data-category");
     setText("statusText", `Categoria selecionada: ${category}`);
   }));
+
+  document.querySelectorAll("#drawer [data-target]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      navigateMenu(btn.getAttribute("data-target"));
+    });
+  });
 }
 
 try {
