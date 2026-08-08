@@ -9,6 +9,7 @@ import { askNeural, NEURAL_MODES } from "./neural-api.js";
 const messages = document.getElementById("chat-messages");
 const input = document.getElementById("chat-input");
 const sendButton = document.getElementById("send-button");
+const composer = document.querySelector(".composer");
 
 const modelSelector = document.getElementById("modelSelector");
 const modelPanel = document.getElementById("modelPanel");
@@ -24,6 +25,35 @@ const backButton = document.getElementById("backButton");
 let selectedMode = NEURAL_MODES.chat.id;
 let isBusy = false;
 
+// ==========================================================
+// Layout
+// ==========================================================
+// O composer é fixo no rodapé. Reservamos espaço real dentro
+// da área de mensagens para que a última resposta nunca fique
+// escondida atrás da caixa de escrita.
+// ==========================================================
+
+function syncComposerSpace() {
+    if (!messages || !composer) return;
+
+    const composerHeight = composer.getBoundingClientRect().height;
+    const safeSpace = Math.ceil(composerHeight + 32);
+
+    messages.style.paddingBottom = `${safeSpace}px`;
+}
+
+function scrollToLatest() {
+    if (!messages) return;
+
+    requestAnimationFrame(() => {
+        messages.scrollTop = messages.scrollHeight;
+    });
+}
+
+// ==========================================================
+// Mensagens
+// ==========================================================
+
 function addMessage(text, type = "ai") {
     if (!messages) return null;
 
@@ -32,7 +62,7 @@ function addMessage(text, type = "ai") {
     div.textContent = text;
 
     messages.appendChild(div);
-    messages.scrollTop = messages.scrollHeight;
+    scrollToLatest();
 
     return div;
 }
@@ -91,6 +121,10 @@ function selectMode(mode) {
     closePanels();
 }
 
+// ==========================================================
+// Envio para a camada neural-api.js
+// ==========================================================
+
 async function sendMessage() {
     if (isBusy || !input) return;
 
@@ -105,7 +139,8 @@ async function sendMessage() {
     setBusy(true);
 
     try {
-        // A neural-api.js aprovado recebe o objeto completo.
+        // neural-api.js recebe exatamente o contrato aprovado:
+        // { prompt, type }
         const result = await askNeural({
             prompt: text,
             type: selectedMode
@@ -130,12 +165,21 @@ async function sendMessage() {
 
         if (thinking) thinking.remove();
 
-        addMessage("Não foi possível comunicar com o Neural-iA.", "ai error");
+        addMessage(
+            error?.message || "Não foi possível comunicar com o Neural-iA.",
+            "ai error"
+        );
     } finally {
         setBusy(false);
+        syncComposerSpace();
+        scrollToLatest();
         input.focus();
     }
 }
+
+// ==========================================================
+// Nova conversa
+// ==========================================================
 
 function startNewChat() {
     if (!messages) return;
@@ -159,7 +203,13 @@ function startNewChat() {
     }
 
     closePanels();
+    syncComposerSpace();
+    scrollToLatest();
 }
+
+// ==========================================================
+// Navegação
+// ==========================================================
 
 function goBack() {
     if (window.history.length > 1) {
@@ -169,6 +219,10 @@ function goBack() {
 
     window.location.href = "../../index.html";
 }
+
+// ==========================================================
+// Microfone
+// ==========================================================
 
 function setupMicrophone() {
     if (!microphoneButton) return;
@@ -182,12 +236,19 @@ function setupMicrophone() {
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             stream.getTracks().forEach((track) => track.stop());
-            addMessage("Microfone autorizado. O reconhecimento de voz será conectado na próxima etapa.", "ai");
+            addMessage(
+                "Microfone autorizado. O reconhecimento de voz será conectado na próxima etapa.",
+                "ai"
+            );
         } catch (error) {
             console.warn("Microphone permission:", error);
         }
     });
 }
+
+// ==========================================================
+// Ferramentas
+// ==========================================================
 
 function setupToolButtons() {
     document.querySelectorAll("[data-close-tools]").forEach((button) => {
@@ -198,10 +259,17 @@ function setupToolButtons() {
         button.addEventListener("click", () => {
             const tool = button.dataset.tool;
             closePanels();
-            addMessage(`Ferramenta selecionada: ${tool}. A integração será conectada na próxima etapa.`, "ai");
+            addMessage(
+                `Ferramenta selecionada: ${tool}. A integração será conectada na próxima etapa.`,
+                "ai"
+            );
         });
     });
 }
+
+// ==========================================================
+// Eventos
+// ==========================================================
 
 if (sendButton) sendButton.addEventListener("click", sendMessage);
 
@@ -216,6 +284,7 @@ if (input) {
     input.addEventListener("input", () => {
         input.style.height = "auto";
         input.style.height = `${Math.min(input.scrollHeight, 180)}px`;
+        syncComposerSpace();
     });
 }
 
@@ -265,6 +334,15 @@ document.addEventListener("click", (event) => {
     }
 });
 
+window.addEventListener("resize", syncComposerSpace);
+window.addEventListener("orientationchange", syncComposerSpace);
+
+if (typeof ResizeObserver !== "undefined" && composer) {
+    const composerObserver = new ResizeObserver(syncComposerSpace);
+    composerObserver.observe(composer);
+}
+
 setupMicrophone();
 setupToolButtons();
 selectMode("chat");
+syncComposerSpace();
