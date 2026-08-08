@@ -3,254 +3,194 @@
 // neural-api.js
 // Camada central de comunicação com as Edge Functions
 // ==========================================================
+//
+// Frontend
+//    ↓
+// neural-api.js
+//    ↓
+// Supabase Edge Function
+//    ↓
+// ai-server_chat
+//    ↓
+// OpenRouter
+//    ↓
+// Modelo de IA
+// ==========================================================
 
 import { supabase } from "./supabase-config.js";
-import { EDGE, SUPABASE } from "./core/constants.js";
 
-// ----------------------------------------------------------
-// Modos de IA suportados pela Edge Function ai-server_chat
-// ----------------------------------------------------------
+const AI_FUNCTION = "ai-server_chat";
+const DEFAULT_TYPE = "chat";
+const VALID_TYPES = ["chat", "code", "reasoning", "vision"];
 
-export const AI_MODES = Object.freeze({
-    CHAT: "chat",
-    CODE: "code",
-    REASONING: "reasoning",
-    VISION: "vision"
-});
-
-// ----------------------------------------------------------
-// Erro padronizado
-// ----------------------------------------------------------
-
-export class NeuralAPIError extends Error {
-    constructor(message, status = 0, details = null) {
-        super(message);
-        this.name = "NeuralAPIError";
-        this.status = status;
-        this.details = details;
-    }
+function normalizeType(type) {
+    const normalized = String(type || DEFAULT_TYPE).toLowerCase().trim();
+    return VALID_TYPES.includes(normalized) ? normalized : DEFAULT_TYPE;
 }
 
-// ----------------------------------------------------------
-// Validação
-// ----------------------------------------------------------
-
-function normalizePrompt(prompt) {
-    if (typeof prompt !== "string") {
-        throw new NeuralAPIError("O prompt precisa ser um texto.");
+function normalizeInput(input, maybeOptions = {}) {
+    if (typeof input === "string") {
+        return {
+            prompt: input,
+            type: normalizeType(maybeOptions.type),
+            imageBase64: maybeOptions.imageBase64 || null
+        };
     }
 
-    const value = prompt.trim();
-
-    if (!value) {
-        throw new NeuralAPIError("O prompt não pode estar vazio.");
+    if (input && typeof input === "object") {
+        return {
+            prompt: input.prompt || "",
+            type: normalizeType(input.type),
+            imageBase64: input.imageBase64 || null
+        };
     }
 
-    return value;
-}
-
-function normalizeMode(type) {
-    const mode = String(type || AI_MODES.CHAT).toLowerCase();
-
-    if (!Object.values(AI_MODES).includes(mode)) {
-        throw new NeuralAPIError(
-            `Modo de IA inválido: ${mode}. Use chat, code, reasoning ou vision.`
-        );
-    }
-
-    return mode;
-}
-
-function buildPayload(prompt, type, imageBase64) {
-    const mode = normalizeMode(type);
-
-    const payload = {
-        prompt: normalizePrompt(prompt),
-        type: mode
+    return {
+        prompt: "",
+        type: DEFAULT_TYPE,
+        imageBase64: null
     };
-
-    if (mode === AI_MODES.VISION && imageBase64) {
-        if (typeof imageBase64 !== "string") {
-            throw new NeuralAPIError(
-                "A imagem precisa estar em Base64 ou Data URL."
-            );
-        }
-
-        payload.imageBase64 = imageBase64;
-    }
-
-    return payload;
 }
 
-// ----------------------------------------------------------
-// Normalização da resposta
-// ----------------------------------------------------------
+function isValidPrompt(prompt) {
+    return typeof prompt === "string" && prompt.trim().length > 0;
+}
 
 function extractAnswer(data) {
-    if (!data) return "";
-
-    // Resposta padrão do OpenRouter usada atualmente pela Edge.
-    const content = data?.choices?.[0]?.message?.content;
-
-    if (typeof content === "string") {
-        return content;
-    }
-
-    // Compatibilidade com futuras respostas normalizadas.
-    if (typeof data.answer === "string") {
-        return data.answer;
-    }
-
-    if (typeof data.message === "string") {
-        return data.message;
-    }
-
-    return "";
+    return (
+        data?.choices?.[0]?.message?.content ||
+        data?.answer ||
+        data?.response ||
+        ""
+    );
 }
 
-function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
-}
+export async function askNeural(input, options = {}) {
+    try {
+        const { prompt, type, imageBase64 } = normalizeInput(input, options);
 
-// ----------------------------------------------------------
-// Chamada à Edge Function com timeout
-// ----------------------------------------------------------
-
-async function invokeAI(payload, timeout) {
-
-    const request = supabase.functions.invoke(
-        EDGE.AI,
-        {
-            body: payload
+        if (!isValidPrompt(prompt)) {
+            return {
+                success: false,
+                error: "Digite uma mensagem antes de enviar.",
+                answer: ""
+            };
         }
-    );
 
-    const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => {
-            reject(
-                new NeuralAPIError(
-                    "Tempo limite excedido ao comunicar com o Neural-iA.",
-                    408
-                )
-            );
-        }, timeout);
-    });
-
-    const { data, error } = await Promise.race([
-        request,
-        timeoutPromise
-    ]);
-
-    if (error) {
-        throw new NeuralAPIError(
-            error.message || "Erro ao chamar a Edge Function.",
-            error.status || 0,
-            error
-        );
-    }
-
-    return {
-        success: true,
-        data,
-        answer: extractAnswer(data)
-    };
-}
-
-// ----------------------------------------------------------
-// Função principal
-// ----------------------------------------------------------
-
-/**
- * Envia uma solicitação para a Edge Function ai-server_chat.
- *
- * Modos disponíveis:
- * - chat       -> Qwen de texto/conversação
- * - code       -> Qwen Coder
- * - reasoning  -> QwQ
- * - vision     -> Qwen Vision / OCR
- *
- * A escolha final do modelo permanece no backend.
- * Isso mantém as chaves e regras do provedor fora do frontend.
- *
- * @param {string} prompt
- * @param {object} options
- * @param {"chat"|"code"|"reasoning"|"vision"} options.type
- * @param {string|null} options.imageBase64
- * @param {number} options.timeout
- * @param {number} options.retries
- */
-export async function askNeural(prompt, options = {}) {
-
-    const type = normalizeMode(options.type || AI_MODES.CHAT);
-    const imageBase64 = options.imageBase64 || null;
-    const timeout = Number(
-        options.timeout || SUPABASE.FUNCTION_TIMEOUT
-    );
-    const retries = Math.max(
-        0,
-        Number(options.retries ?? SUPABASE.RETRY)
-    );
-
-    const payload = buildPayload(
-        prompt,
-        type,
-        imageBase64
-    );
-
-    let lastError = null;
-
-    for (let attempt = 0; attempt <= retries; attempt++) {
-        try {
-            return await invokeAI(payload, timeout);
-        } catch (error) {
-            lastError = error;
-
-            if (attempt < retries) {
-                await sleep(400 * (attempt + 1));
-            }
+        if (type === "vision" && !imageBase64) {
+            return {
+                success: false,
+                error: "O modo Visão precisa de uma imagem.",
+                answer: ""
+            };
         }
+
+        const body = {
+            prompt: prompt.trim(),
+            type
+        };
+
+        if (type === "vision" && imageBase64) {
+            body.imageBase64 = imageBase64;
+        }
+
+        console.log("Neural-iA → Edge Function:", {
+            function: AI_FUNCTION,
+            type,
+            hasImage: Boolean(imageBase64)
+        });
+
+        const { data, error } = await supabase.functions.invoke(AI_FUNCTION, {
+            body
+        });
+
+        if (error) {
+            return {
+                success: false,
+                error: error.message || "Erro ao comunicar com o Neural-iA.",
+                answer: ""
+            };
+        }
+
+        if (!data) {
+            return {
+                success: false,
+                error: "A IA não retornou uma resposta.",
+                answer: ""
+            };
+        }
+
+        if (data.error) {
+            return {
+                success: false,
+                error: typeof data.error === "string" ? data.error : "Erro retornado pelo serviço de IA.",
+                answer: ""
+            };
+        }
+
+        const answer = extractAnswer(data);
+
+        if (!answer) {
+            return {
+                success: false,
+                error: "A IA respondeu, mas não foi possível interpretar a resposta.",
+                answer: "",
+                raw: data
+            };
+        }
+
+        return {
+            success: true,
+            answer,
+            type,
+            raw: data
+        };
+    } catch (error) {
+        console.error("Neural-iA → Erro inesperado:", error);
+
+        return {
+            success: false,
+            error: error?.message || "Erro inesperado ao comunicar com o Neural-iA.",
+            answer: ""
+        };
     }
-
-    console.error("Neural-iA API error:", lastError);
-
-    return {
-        success: false,
-        data: lastError?.details || null,
-        answer: lastError?.message || "Erro ao comunicar com o Neural-iA.",
-        error: lastError?.message || "Erro desconhecido.",
-        status: lastError?.status || 0
-    };
 }
 
-// ----------------------------------------------------------
-// Atalhos dos quatro modos
-// ----------------------------------------------------------
-
-export function askChat(prompt, options = {}) {
-    return askNeural(prompt, {
-        ...options,
-        type: AI_MODES.CHAT
-    });
+export async function askChat(prompt) {
+    return askNeural({ prompt, type: "chat" });
 }
 
-export function askCoder(prompt, options = {}) {
-    return askNeural(prompt, {
-        ...options,
-        type: AI_MODES.CODE
-    });
+export async function askCode(prompt) {
+    return askNeural({ prompt, type: "code" });
 }
 
-export function askReasoning(prompt, options = {}) {
-    return askNeural(prompt, {
-        ...options,
-        type: AI_MODES.REASONING
-    });
+export async function askReasoning(prompt) {
+    return askNeural({ prompt, type: "reasoning" });
 }
 
-export function askVision(prompt, imageBase64, options = {}) {
-    return askNeural(prompt, {
-        ...options,
-        type: AI_MODES.VISION,
-        imageBase64
-    });
+export async function askVision(prompt, imageBase64) {
+    return askNeural({ prompt, type: "vision", imageBase64 });
 }
+
+export const NEURAL_MODES = {
+    chat: {
+        id: "chat",
+        name: "Conversar",
+        description: "Conversação e texto"
+    },
+    code: {
+        id: "code",
+        name: "Código",
+        description: "Programação e desenvolvimento"
+    },
+    reasoning: {
+        id: "reasoning",
+        name: "Raciocínio",
+        description: "Problemas complexos e lógica"
+    },
+    vision: {
+        id: "vision",
+        name: "Visão",
+        description: "Imagens e OCR"
+    }
+};
