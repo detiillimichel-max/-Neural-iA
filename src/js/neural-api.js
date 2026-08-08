@@ -4,16 +4,11 @@
 // Camada central de comunicação com as Edge Functions
 // ==========================================================
 
-import {
-    SUPABASE_FUNCTIONS_URL,
-    SUPABASE_ANON_KEY,
-    SUPABASE_HEADERS
-} from "./supabase-config.js";
-
+import { supabase } from "./supabase-config.js";
 import { EDGE, SUPABASE } from "./core/constants.js";
 
 // ----------------------------------------------------------
-// Tipos de operação suportados pela ai-server_chat
+// Modos de IA suportados pela Edge Function ai-server_chat
 // ----------------------------------------------------------
 
 export const AI_MODES = Object.freeze({
@@ -27,7 +22,7 @@ export const AI_MODES = Object.freeze({
 // Erro padronizado
 // ----------------------------------------------------------
 
-class NeuralAPIError extends Error {
+export class NeuralAPIError extends Error {
     constructor(message, status = 0, details = null) {
         super(message);
         this.name = "NeuralAPIError";
@@ -37,7 +32,7 @@ class NeuralAPIError extends Error {
 }
 
 // ----------------------------------------------------------
-// Utilidades
+// Validação
 // ----------------------------------------------------------
 
 function normalizePrompt(prompt) {
@@ -67,14 +62,18 @@ function normalizeMode(type) {
 }
 
 function buildPayload(prompt, type, imageBase64) {
+    const mode = normalizeMode(type);
+
     const payload = {
         prompt: normalizePrompt(prompt),
-        type: normalizeMode(type)
+        type: mode
     };
 
-    if (payload.type === AI_MODES.VISION && imageBase64) {
+    if (mode === AI_MODES.VISION && imageBase64) {
         if (typeof imageBase64 !== "string") {
-            throw new NeuralAPIError("A imagem precisa estar em Base64 ou Data URL.");
+            throw new NeuralAPIError(
+                "A imagem precisa estar em Base64 ou Data URL."
+            );
         }
 
         payload.imageBase64 = imageBase64;
@@ -83,17 +82,21 @@ function buildPayload(prompt, type, imageBase64) {
     return payload;
 }
 
-function getAnswer(data) {
+// ----------------------------------------------------------
+// Normalização da resposta
+// ----------------------------------------------------------
+
+function extractAnswer(data) {
     if (!data) return "";
 
-    // Resposta OpenRouter direta.
+    // Resposta padrão do OpenRouter usada atualmente pela Edge.
     const content = data?.choices?.[0]?.message?.content;
 
     if (typeof content === "string") {
         return content;
     }
 
-    // Respostas que já venham normalizadas pela Edge Function.
+    // Compatibilidade com futuras respostas normalizadas.
     if (typeof data.answer === "string") {
         return data.answer;
     }
@@ -110,63 +113,47 @@ function sleep(ms) {
 }
 
 // ----------------------------------------------------------
-// Chamada única à Edge Function
+// Chamada à Edge Function com timeout
 // ----------------------------------------------------------
 
-async function invokeAI(payload, timeout = SUPABASE.FUNCTION_TIMEOUT) {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeout);
+async function invokeAI(payload, timeout) {
 
-    try {
-        const response = await fetch(
-            `${SUPABASE_FUNCTIONS_URL}/${EDGE.AI}`,
-            {
-                method: "POST",
-                headers: {
-                    ...SUPABASE_HEADERS,
-                    "Authorization": `Bearer ${SUPABASE_ANON_KEY}`
-                },
-                body: JSON.stringify(payload),
-                signal: controller.signal
-            }
+    const request = supabase.functions.invoke(
+        EDGE.AI,
+        {
+            body: payload
+        }
+    );
+
+    const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => {
+            reject(
+                new NeuralAPIError(
+                    "Tempo limite excedido ao comunicar com o Neural-iA.",
+                    408
+                )
+            );
+        }, timeout);
+    });
+
+    const { data, error } = await Promise.race([
+        request,
+        timeoutPromise
+    ]);
+
+    if (error) {
+        throw new NeuralAPIError(
+            error.message || "Erro ao chamar a Edge Function.",
+            error.status || 0,
+            error
         );
-
-        const rawText = await response.text();
-        let data = null;
-
-        try {
-            data = rawText ? JSON.parse(rawText) : null;
-        } catch {
-            data = { raw: rawText };
-        }
-
-        if (!response.ok) {
-            throw new NeuralAPIError(
-                data?.error || data?.message || `Erro HTTP ${response.status}.`,
-                response.status,
-                data
-            );
-        }
-
-        return {
-            success: true,
-            data,
-            answer: getAnswer(data)
-        };
-
-    } catch (error) {
-        if (error?.name === "AbortError") {
-            throw new NeuralAPIError(
-                "Tempo limite excedido ao comunicar com o Neural-iA.",
-                408
-            );
-        }
-
-        throw error;
-
-    } finally {
-        clearTimeout(timer);
     }
+
+    return {
+        success: true,
+        data,
+        answer: extractAnswer(data)
+    };
 }
 
 // ----------------------------------------------------------
@@ -176,11 +163,14 @@ async function invokeAI(payload, timeout = SUPABASE.FUNCTION_TIMEOUT) {
 /**
  * Envia uma solicitação para a Edge Function ai-server_chat.
  *
- * Modos:
- * - chat       -> conversação / texto geral
- * - code       -> programação / código
- * - reasoning  -> raciocínio avançado
- * - vision     -> visão / OCR com imagem Base64
+ * Modos disponíveis:
+ * - chat       -> Qwen de texto/conversação
+ * - code       -> Qwen Coder
+ * - reasoning  -> QwQ
+ * - vision     -> Qwen Vision / OCR
+ *
+ * A escolha final do modelo permanece no backend.
+ * Isso mantém as chaves e regras do provedor fora do frontend.
  *
  * @param {string} prompt
  * @param {object} options
@@ -193,13 +183,19 @@ export async function askNeural(prompt, options = {}) {
 
     const type = normalizeMode(options.type || AI_MODES.CHAT);
     const imageBase64 = options.imageBase64 || null;
-    const timeout = Number(options.timeout || SUPABASE.FUNCTION_TIMEOUT);
+    const timeout = Number(
+        options.timeout || SUPABASE.FUNCTION_TIMEOUT
+    );
     const retries = Math.max(
         0,
         Number(options.retries ?? SUPABASE.RETRY)
     );
 
-    const payload = buildPayload(prompt, type, imageBase64);
+    const payload = buildPayload(
+        prompt,
+        type,
+        imageBase64
+    );
 
     let lastError = null;
 
@@ -227,7 +223,7 @@ export async function askNeural(prompt, options = {}) {
 }
 
 // ----------------------------------------------------------
-// Atalhos explícitos para os quatro modos
+// Atalhos dos quatro modos
 // ----------------------------------------------------------
 
 export function askChat(prompt, options = {}) {
@@ -258,5 +254,3 @@ export function askVision(prompt, imageBase64, options = {}) {
         imageBase64
     });
 }
-
-export { NeuralAPIError };
