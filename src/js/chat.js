@@ -4,7 +4,7 @@
 // Controlador da interface do chat
 // ==========================================================
 
-import { askNeural, AI_MODES } from "./neural-api.js";
+import { askNeural, NEURAL_MODES } from "./neural-api.js";
 
 const messages = document.getElementById("chat-messages");
 const input = document.getElementById("chat-input");
@@ -21,7 +21,7 @@ const microphoneButton = document.getElementById("microphoneButton");
 const newChatButton = document.getElementById("newChat");
 const backButton = document.getElementById("backButton");
 
-let selectedMode = AI_MODES.CHAT;
+let selectedMode = NEURAL_MODES.chat.id;
 let isBusy = false;
 
 function addMessage(text, type = "ai") {
@@ -66,28 +66,24 @@ function togglePanel(panel, trigger) {
     if (trigger) trigger.setAttribute("aria-expanded", String(willOpen));
 }
 
-function getModeLabel(mode) {
-    return {
-        chat: "Qwen",
-        code: "Qwen Coder",
-        reasoning: "QwQ",
-        vision: "Qwen Vision"
-    }[mode] || "Qwen";
+function getMode(mode) {
+    return Object.values(NEURAL_MODES).find((item) => item.id === mode) || NEURAL_MODES.chat;
 }
 
-function selectMode(mode, label) {
-    const normalized = String(mode || AI_MODES.CHAT).toLowerCase();
-
-    if (!Object.values(AI_MODES).includes(normalized)) return;
-
-    selectedMode = normalized;
+function selectMode(mode) {
+    const selected = getMode(String(mode || "chat").toLowerCase());
+    selectedMode = selected.id;
 
     if (selectedModelLabel) {
-        selectedModelLabel.textContent = label || getModeLabel(normalized);
+        selectedModelLabel.textContent =
+            selected.id === "chat" ? "Qwen" :
+            selected.id === "code" ? "Qwen Coder" :
+            selected.id === "reasoning" ? "QwQ" :
+            "Qwen Vision";
     }
 
     modelOptions.forEach((option) => {
-        const active = option.dataset.model === normalized;
+        const active = option.dataset.model === selected.id;
         option.classList.toggle("is-selected", active);
         option.setAttribute("aria-selected", String(active));
     });
@@ -109,7 +105,9 @@ async function sendMessage() {
     setBusy(true);
 
     try {
-        const result = await askNeural(text, {
+        // A neural-api.js aprovado recebe o objeto completo.
+        const result = await askNeural({
+            prompt: text,
             type: selectedMode
         });
 
@@ -117,7 +115,7 @@ async function sendMessage() {
 
         if (!result?.success) {
             addMessage(
-                result?.answer || "Não foi possível obter uma resposta agora.",
+                result?.error || "Não foi possível obter uma resposta agora.",
                 "ai error"
             );
             return;
@@ -227,10 +225,7 @@ if (modelSelector) {
 
 modelOptions.forEach((option) => {
     option.addEventListener("click", () => {
-        selectMode(
-            option.dataset.model,
-            option.querySelector("strong")?.textContent || getModeLabel(option.dataset.model)
-        );
+        selectMode(option.dataset.model);
     });
 });
 
@@ -272,4 +267,4 @@ document.addEventListener("click", (event) => {
 
 setupMicrophone();
 setupToolButtons();
-selectMode(AI_MODES.CHAT, getModeLabel(AI_MODES.CHAT));
+selectMode("chat");
