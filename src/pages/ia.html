@@ -3,8 +3,9 @@
 <head>
 
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#0d0d0d">
+<meta name="color-scheme" content="dark">
 
 <title>Neural-iA</title>
 
@@ -14,46 +15,219 @@
 
 <body>
 
-<header class="topbar">
+<div class="chat-page">
 
-    <button id="backButton" type="button" aria-label="Voltar">
-        ☰
+<header class="chat-header">
+
+    <button class="icon-button" id="backButton" type="button" aria-label="Abrir menu">
+        <i data-lucide="menu"></i>
     </button>
 
-    <h1>Neural-iA</h1>
+    <div class="brand-block">
+        <span class="brand-name">Neural-iA</span>
+        <span class="brand-status">Assistente inteligente</span>
+    </div>
 
-    <button id="newChat" type="button" aria-label="Nova conversa">
-        ＋
+    <button class="icon-button" id="newChat" type="button" aria-label="Nova conversa">
+        <i data-lucide="plus"></i>
     </button>
 
 </header>
 
-<main id="chat-messages" aria-live="polite" aria-label="Conversa com Neural-iA">
+<main id="chat-messages" class="chat-messages" aria-live="polite" aria-label="Conversa com Neural-iA">
 
-    <div class="welcome">
+    <section class="welcome" aria-label="Boas-vindas">
 
-        <h2>Olá 👋</h2>
+        <div class="neural-mark" aria-hidden="true">
+            <i data-lucide="sparkles"></i>
+        </div>
 
-        <p>Como posso ajudar você hoje?</p>
+        <h2>Neural-iA</h2>
+        <p>O que você quer fazer hoje?</p>
 
-    </div>
+        <button class="model-selector" id="modelSelector" type="button" aria-haspopup="dialog" aria-expanded="false">
+            <span class="model-icon" aria-hidden="true">
+                <i data-lucide="sparkles"></i>
+            </span>
+            <span class="model-info">
+                <strong id="selectedModel">Qwen</strong>
+                <small>Conversação e texto</small>
+            </span>
+            <i class="model-chevron" data-lucide="chevron-down" aria-hidden="true"></i>
+        </button>
+
+        <div class="quick-actions" aria-label="Ações rápidas">
+
+            <button class="quick-action" type="button" data-mode="chat">
+                <i data-lucide="message-circle"></i>
+                <span>Conversar</span>
+            </button>
+
+            <button class="quick-action" type="button" data-mode="code">
+                <i data-lucide="code-2"></i>
+                <span>Código</span>
+            </button>
+
+            <button class="quick-action" type="button" data-mode="reasoning">
+                <i data-lucide="brain"></i>
+                <span>Raciocínio</span>
+            </button>
+
+            <button class="quick-action" type="button" data-mode="vision">
+                <i data-lucide="scan-eye"></i>
+                <span>Visão</span>
+            </button>
+
+        </div>
+
+    </section>
 
 </main>
 
+<div class="model-panel" id="modelPanel" hidden aria-label="Escolher modelo">
+
+    <div class="panel-backdrop" data-close-panel></div>
+
+    <section class="bottom-sheet" role="dialog" aria-modal="true" aria-labelledby="modelPanelTitle">
+
+        <div class="sheet-handle"></div>
+
+        <div class="sheet-header">
+            <div>
+                <span class="eyebrow">Neural Engine</span>
+                <h3 id="modelPanelTitle">Escolher modelo</h3>
+            </div>
+            <button class="icon-button small" type="button" data-close-panel aria-label="Fechar">
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+
+        <div class="model-list">
+
+            <button class="model-option is-selected" type="button" data-model="chat">
+                <span class="option-icon"><i data-lucide="message-circle"></i></span>
+                <span><strong>Qwen</strong><small>Conversação e texto</small></span>
+                <i class="check-icon" data-lucide="check"></i>
+            </button>
+
+            <button class="model-option" type="button" data-model="code">
+                <span class="option-icon"><i data-lucide="code-2"></i></span>
+                <span><strong>Qwen Coder</strong><small>Programação e código</small></span>
+                <i class="check-icon" data-lucide="check"></i>
+            </button>
+
+            <button class="model-option" type="button" data-model="reasoning">
+                <span class="option-icon"><i data-lucide="brain"></i></span>
+                <span><strong>QwQ</strong><small>Raciocínio avançado</small></span>
+                <i class="check-icon" data-lucide="check"></i>
+            </button>
+
+            <button class="model-option" type="button" data-model="vision">
+                <span class="option-icon"><i data-lucide="scan-eye"></i></span>
+                <span><strong>Qwen Vision</strong><small>Imagem e OCR</small></span>
+                <i class="check-icon" data-lucide="check"></i>
+            </button>
+
+        </div>
+
+    </section>
+
+</div>
+
+<div class="tools-panel" id="toolsPanel" hidden aria-label="Ferramentas do Neural-iA">
+
+    <div class="panel-backdrop" data-close-tools></div>
+
+    <section class="bottom-sheet" role="dialog" aria-modal="true" aria-labelledby="toolsPanelTitle">
+
+        <div class="sheet-handle"></div>
+
+        <div class="sheet-header">
+            <div>
+                <span class="eyebrow">Neural Tools</span>
+                <h3 id="toolsPanelTitle">Adicionar ao pedido</h3>
+            </div>
+            <button class="icon-button small" type="button" data-close-tools aria-label="Fechar">
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+
+        <div class="tools-grid">
+
+            <button class="tool-option" type="button" data-tool="image">
+                <i data-lucide="image"></i>
+                <span>Imagem</span>
+                <small>Analisar imagem</small>
+            </button>
+
+            <button class="tool-option" type="button" data-tool="document">
+                <i data-lucide="file-text"></i>
+                <span>Documento</span>
+                <small>OCR e leitura</small>
+            </button>
+
+            <button class="tool-option" type="button" data-tool="file">
+                <i data-lucide="paperclip"></i>
+                <span>Arquivo</span>
+                <small>Anexar arquivo</small>
+            </button>
+
+            <button class="tool-option" type="button" data-tool="camera">
+                <i data-lucide="camera"></i>
+                <span>Câmera</span>
+                <small>Capturar imagem</small>
+            </button>
+
+            <button class="tool-option" type="button" data-tool="search">
+                <i data-lucide="search"></i>
+                <span>Pesquisa</span>
+                <small>Pesquisa universal</small>
+            </button>
+
+        </div>
+
+    </section>
+
+</div>
+
 <footer class="composer">
 
-    <textarea
-        id="chat-input"
-        placeholder="Pergunte qualquer coisa..."
-        rows="1"
-        aria-label="Mensagem para o Neural-iA"></textarea>
+    <div class="composer-box">
 
-    <button id="send-button" type="button">
-        Enviar
-    </button>
+        <textarea
+            id="chat-input"
+            placeholder="Pergunte qualquer coisa..."
+            rows="1"
+            aria-label="Mensagem para o Neural-iA"></textarea>
+
+        <div class="composer-toolbar">
+
+            <button class="composer-button" id="toolsButton" type="button" aria-label="Adicionar ferramenta" aria-haspopup="dialog" aria-expanded="false">
+                <i data-lucide="plus"></i>
+            </button>
+
+            <div class="composer-spacer"></div>
+
+            <button class="composer-button" id="microphoneButton" type="button" aria-label="Gravar voz">
+                <i data-lucide="mic"></i>
+            </button>
+
+            <button class="send-button" id="send-button" type="button" aria-label="Enviar mensagem">
+                <i data-lucide="arrow-up"></i>
+            </button>
+
+        </div>
+
+    </div>
 
 </footer>
 
+</div>
+
+<script src="https://unpkg.com/lucide@latest"></script>
+<script type="module">
+    lucide.createIcons();
+</script>
 <script src="../js/chat.js"></script>
 
 </body>
