@@ -1,39 +1,13 @@
 // ==========================================================
 // Neural-iA — Image Tool
-// Conecta o botão Imagem à camada neural-api.js.
-// Não altera a Edge Function nem expõe nenhuma API key.
+// Selecao de imagem robusta para Android / Google Fotos.
+// Cada abertura usa um input novo para impedir arquivo antigo.
 // ==========================================================
 
 import { askVision } from "./neural-api.js";
 
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 const ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
-
-function getImageInput() {
-    let input = document.getElementById("imageInput");
-
-    if (input) return input;
-
-    input = document.createElement("input");
-    input.type = "file";
-    input.id = "imageInput";
-    input.accept = ACCEPTED_TYPES.join(",");
-    input.hidden = true;
-    document.body.appendChild(input);
-
-    return input;
-}
-
-function fileToDataUrl(file) {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-
-        reader.onload = () => resolve(String(reader.result || ""));
-        reader.onerror = () => reject(new Error("Não foi possível ler a imagem."));
-
-        reader.readAsDataURL(file);
-    });
-}
 
 function getComposerInput() {
     return document.getElementById("chat-input");
@@ -54,6 +28,24 @@ function addMessage(text, type = "ai") {
     messages.scrollTop = messages.scrollHeight;
 
     return div;
+}
+
+function fileToDataUrl(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+
+        reader.onload = () => {
+            const result = String(reader.result || "");
+            if (!result.startsWith("data:image/")) {
+                reject(new Error("O arquivo selecionado não é uma imagem válida."));
+                return;
+            }
+            resolve(result);
+        };
+
+        reader.onerror = () => reject(new Error("Não foi possível ler a imagem."));
+        reader.readAsDataURL(file);
+    });
 }
 
 function showPreview(dataUrl) {
@@ -82,10 +74,7 @@ function showPreview(dataUrl) {
     remove.setAttribute("aria-label", "Remover imagem");
     remove.textContent = "×";
     remove.addEventListener("click", () => {
-        preview.remove();
-        const input = document.getElementById("imageInput");
-        if (input) input.value = "";
-        window.neuralImageDataUrl = null;
+        clearSelectedImage();
     });
     preview.appendChild(remove);
 }
@@ -104,8 +93,19 @@ async function handleImage(file) {
     }
 
     try {
+        // O Data URL é criado diretamente a partir do File entregue
+        // pelo seletor. Assim, o preview e o payload usam exatamente
+        // os mesmos bytes da imagem escolhida.
         const dataUrl = await fileToDataUrl(file);
+
         window.neuralImageDataUrl = dataUrl;
+        window.neuralImageFile = {
+            name: file.name || "imagem",
+            type: file.type,
+            size: file.size,
+            lastModified: file.lastModified || 0
+        };
+
         showPreview(dataUrl);
 
         const input = getComposerInput();
@@ -116,6 +116,44 @@ async function handleImage(file) {
     } catch (error) {
         console.error("Neural-iA image tool:", error);
         addMessage(error?.message || "Não foi possível carregar a imagem.", "ai error");
+    }
+}
+
+function createFreshImageInput() {
+    const oldInput = document.getElementById("imageInput");
+    if (oldInput) oldInput.remove();
+
+    const input = document.createElement("input");
+    input.type = "file";
+    input.id = "imageInput";
+    input.accept = ACCEPTED_TYPES.join(",");
+    input.hidden = true;
+
+    // Um input novo por tentativa evita que o Android/Google Fotos
+    // reutilize o File de uma seleção anterior.
+    input.addEventListener("change", async () => {
+        const file = input.files?.[0] || null;
+        await handleImage(file);
+        input.remove();
+    }, { once: true });
+
+    document.body.appendChild(input);
+    return input;
+}
+
+function clearSelectedImage() {
+    window.neuralImageDataUrl = null;
+    window.neuralImageFile = null;
+
+    const preview = document.getElementById("imagePreview");
+    if (preview) preview.remove();
+
+    const input = document.getElementById("imageInput");
+    if (input) input.remove();
+
+    const composerInput = getComposerInput();
+    if (composerInput) {
+        composerInput.placeholder = "Pergunte qualquer coisa...";
     }
 }
 
@@ -138,17 +176,11 @@ async function analyzeSelectedImage(prompt) {
 }
 
 export function openImagePicker() {
-    getImageInput().click();
+    const input = createFreshImageInput();
+    input.click();
 }
 
 export function setupImageTool() {
-    const input = getImageInput();
-
-    input.addEventListener("change", () => {
-        const file = input.files?.[0];
-        handleImage(file);
-    });
-
     document.querySelectorAll('[data-tool="image"]').forEach((button) => {
         button.addEventListener("click", (event) => {
             event.preventDefault();
@@ -159,12 +191,7 @@ export function setupImageTool() {
 
     window.neuralImage = {
         analyze: analyzeSelectedImage,
-        clear: () => {
-            window.neuralImageDataUrl = null;
-            const preview = document.getElementById("imagePreview");
-            if (preview) preview.remove();
-            input.value = "";
-        }
+        clear: clearSelectedImage
     };
 }
 
