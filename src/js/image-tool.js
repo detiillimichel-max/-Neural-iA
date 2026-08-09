@@ -48,6 +48,65 @@ function fileToDataUrl(file) {
     });
 }
 
+function installImageLayoutStyles() {
+    if (document.getElementById("neural-image-layout-styles")) return;
+
+    const style = document.createElement("style");
+    style.id = "neural-image-layout-styles";
+    style.textContent = `
+        .image-preview {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            width: 100%;
+            max-height: 82px;
+            margin: 0 0 8px;
+            padding: 8px 10px;
+            border: 1px solid rgba(255,255,255,.10);
+            border-radius: 14px;
+            background: rgba(255,255,255,.04);
+            overflow: hidden;
+        }
+
+        .image-preview img {
+            width: 64px;
+            height: 64px;
+            flex: 0 0 64px;
+            object-fit: cover;
+            border-radius: 10px;
+            display: block;
+        }
+
+        .image-preview-remove {
+            width: 30px;
+            height: 30px;
+            margin-left: auto;
+            flex: 0 0 30px;
+            border: 0;
+            border-radius: 50%;
+            background: rgba(255,255,255,.08);
+            color: inherit;
+            font-size: 20px;
+            cursor: pointer;
+        }
+
+        .message-image {
+            display: block;
+            width: min(100%, 360px);
+            height: auto;
+            max-height: 360px;
+            object-fit: contain;
+            border-radius: 16px;
+            margin: 0 0 8px;
+        }
+
+        .message.user .message-image {
+            max-width: min(100%, 360px);
+        }
+    `;
+    document.head.appendChild(style);
+}
+
 function showPreview(dataUrl) {
     const composer = document.querySelector(".composer");
     if (!composer) return;
@@ -181,6 +240,8 @@ export function openImagePicker() {
 }
 
 export function setupImageTool() {
+    installImageLayoutStyles();
+
     document.querySelectorAll('[data-tool="image"]').forEach((button) => {
         button.addEventListener("click", (event) => {
             event.preventDefault();
