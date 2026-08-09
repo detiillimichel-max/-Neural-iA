@@ -50,13 +50,30 @@ function scrollToLatest() {
 // ==========================================================
 // Mensagens
 // ==========================================================
+// imageDataUrl é opcional e serve para manter a imagem anexada
+// visualmente na mensagem do usuário depois do envio.
 
-function addMessage(text, type = "ai") {
+function addMessage(text, type = "ai", imageDataUrl = null) {
     if (!messages) return null;
 
     const div = document.createElement("div");
     div.className = `message ${type}`;
-    div.textContent = text;
+
+    if (imageDataUrl) {
+        const image = document.createElement("img");
+        image.className = "message-image";
+        image.src = imageDataUrl;
+        image.alt = "Imagem enviada para análise";
+        image.loading = "lazy";
+        div.appendChild(image);
+    }
+
+    if (text) {
+        const textNode = document.createElement("div");
+        textNode.className = "message-text";
+        textNode.textContent = text;
+        div.appendChild(textNode);
+    }
 
     messages.appendChild(div);
     scrollToLatest();
@@ -125,13 +142,29 @@ function selectMode(mode) {
 async function sendMessage() {
     if (isBusy || !input) return;
 
+    // Capturamos a imagem ANTES de limpar o composer.
+    // A mesma referência é usada para:
+    // 1. enviar à Edge Function;
+    // 2. registrar a imagem na mensagem do usuário;
+    // 3. limpar o anexo somente depois da resposta válida.
     const imageDataUrl = window.neuralImageDataUrl || null;
     const typedText = input.value.trim();
-    const text = typedText || (imageDataUrl ? "Analise esta imagem e descreva o que você encontra nela." : "");
+    const text = typedText || (
+        imageDataUrl
+            ? "Analise esta imagem e descreva o que você encontra nela."
+            : ""
+    );
 
     if (!text) return;
 
-    addMessage(typedText || "Analisei a imagem selecionada.", "user");
+    // A imagem agora fica registrada dentro do histórico do chat.
+    // Portanto ela não desaparece quando o preview do composer é limpo.
+    addMessage(
+        typedText || "Analisei a imagem selecionada.",
+        "user",
+        imageDataUrl
+    );
+
     input.value = "";
     input.style.height = "auto";
 
@@ -139,8 +172,8 @@ async function sendMessage() {
     setBusy(true);
 
     try {
-        // Quando existe uma imagem anexada, usamos explicitamente
-        // o contrato de Visão da neural-api.js.
+        // Imagem => contrato explícito de Visão.
+        // Texto => modo atualmente selecionado.
         const result = imageDataUrl
             ? await askNeural({
                 prompt: text,
@@ -159,6 +192,9 @@ async function sendMessage() {
                 result?.error || "Não foi possível obter uma resposta agora.",
                 "ai error"
             );
+
+            // Em caso de erro, NÃO apagamos a imagem.
+            // O usuário ainda pode tentar novamente.
             return;
         }
 
@@ -167,6 +203,8 @@ async function sendMessage() {
             "ai"
         );
 
+        // Só depois de uma resposta válida o anexo do composer é limpo.
+        // A cópia visual já permanece na mensagem do usuário.
         if (imageDataUrl && window.neuralImage?.clear) {
             window.neuralImage.clear();
         }
@@ -179,6 +217,8 @@ async function sendMessage() {
             error?.message || "Não foi possível comunicar com o Neural-iA.",
             "ai error"
         );
+
+        // Não limpar a imagem em caso de falha inesperada.
     } finally {
         setBusy(false);
         syncComposerSpace();
