@@ -5,6 +5,7 @@
 // ==========================================================
 
 import { askNeural, NEURAL_MODES } from "./neural-api.js";
+import "./image-tool.js";
 
 const messages = document.getElementById("chat-messages");
 const input = document.getElementById("chat-input");
@@ -27,10 +28,6 @@ let isBusy = false;
 
 // ==========================================================
 // Layout
-// ==========================================================
-// O composer é fixo no rodapé. Reservamos espaço real dentro
-// da área de mensagens para que a última resposta nunca fique
-// escondida atrás da caixa de escrita.
 // ==========================================================
 
 function syncComposerSpace() {
@@ -128,10 +125,13 @@ function selectMode(mode) {
 async function sendMessage() {
     if (isBusy || !input) return;
 
-    const text = input.value.trim();
+    const imageDataUrl = window.neuralImageDataUrl || null;
+    const typedText = input.value.trim();
+    const text = typedText || (imageDataUrl ? "Analise esta imagem e descreva o que você encontra nela." : "");
+
     if (!text) return;
 
-    addMessage(text, "user");
+    addMessage(typedText || "Analisei a imagem selecionada.", "user");
     input.value = "";
     input.style.height = "auto";
 
@@ -139,12 +139,18 @@ async function sendMessage() {
     setBusy(true);
 
     try {
-        // neural-api.js recebe exatamente o contrato aprovado:
-        // { prompt, type }
-        const result = await askNeural({
-            prompt: text,
-            type: selectedMode
-        });
+        // Quando existe uma imagem anexada, usamos explicitamente
+        // o contrato de Visão da neural-api.js.
+        const result = imageDataUrl
+            ? await askNeural({
+                prompt: text,
+                type: "vision",
+                imageBase64: imageDataUrl
+            })
+            : await askNeural({
+                prompt: text,
+                type: selectedMode
+            });
 
         if (thinking) thinking.remove();
 
@@ -160,6 +166,10 @@ async function sendMessage() {
             result.answer || "O Neural-iA recebeu a solicitação, mas não retornou texto.",
             "ai"
         );
+
+        if (imageDataUrl && window.neuralImage?.clear) {
+            window.neuralImage.clear();
+        }
     } catch (error) {
         console.error("Neural-iA chat error:", error);
 
@@ -196,9 +206,12 @@ function startNewChat() {
 
     if (window.lucide) window.lucide.createIcons();
 
+    if (window.neuralImage?.clear) window.neuralImage.clear();
+
     if (input) {
         input.value = "";
         input.style.height = "auto";
+        input.placeholder = "Pergunte qualquer coisa...";
         input.focus();
     }
 
@@ -255,7 +268,9 @@ function setupToolButtons() {
         button.addEventListener("click", closePanels);
     });
 
-    document.querySelectorAll("[data-tool]").forEach((button) => {
+    // Imagem já é tratada pelo image-tool.js.
+    // Os demais módulos continuam como placeholders até a próxima etapa.
+    document.querySelectorAll("[data-tool]:not([data-tool=\"image\"])").forEach((button) => {
         button.addEventListener("click", () => {
             const tool = button.dataset.tool;
             closePanels();
