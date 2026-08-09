@@ -1,12 +1,14 @@
 // ==========================================================
 // Neural-iA — Image Tool
-// Selecao de imagem robusta para Android / Google Fotos.
+// Seleção de imagem robusta para Android / Google Fotos.
 // Cada abertura usa um input novo para impedir arquivo antigo.
 // ==========================================================
 
 import { askVision } from "./neural-api.js";
 
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
+const MAX_VISION_EDGE = 1280;
+const MAX_VISION_DATA_URL_LENGTH = 2_400_000;
 const ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 
 function getComposerInput() {
@@ -46,6 +48,64 @@ function fileToDataUrl(file) {
         reader.onerror = () => reject(new Error("Não foi possível ler a imagem."));
         reader.readAsDataURL(file);
     });
+}
+
+function dataUrlToImage(dataUrl) {
+    return new Promise((resolve, reject) => {
+        const image = new Image();
+        image.onload = () => resolve(image);
+        image.onerror = () => reject(new Error("Não foi possível preparar a imagem para análise."));
+        image.src = dataUrl;
+    });
+}
+
+function canvasToDataUrl(canvas, quality) {
+    return canvas.toDataURL("image/jpeg", quality);
+}
+
+async function prepareVisionImage(dataUrl) {
+    const image = await dataUrlToImage(dataUrl);
+
+    const sourceWidth = image.naturalWidth || image.width;
+    const sourceHeight = image.naturalHeight || image.height;
+    const scale = Math.min(1, MAX_VISION_EDGE / Math.max(sourceWidth, sourceHeight));
+
+    const width = Math.max(1, Math.round(sourceWidth * scale));
+    const height = Math.max(1, Math.round(sourceHeight * scale));
+
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+
+    const context = canvas.getContext("2d", { alpha: false });
+    if (!context) return dataUrl;
+
+    context.fillStyle = "#ffffff";
+    context.fillRect(0, 0, width, height);
+    context.drawImage(image, 0, 0, width, height);
+
+    // JPEG comprimido evita enviar imagens gigantes em Base64 para a Edge.
+    let prepared = canvasToDataUrl(canvas, 0.78);
+
+    if (prepared.length > MAX_VISION_DATA_URL_LENGTH) {
+        prepared = canvasToDataUrl(canvas, 0.64);
+    }
+
+    if (prepared.length > MAX_VISION_DATA_URL_LENGTH) {
+        const smallerCanvas = document.createElement("canvas");
+        smallerCanvas.width = Math.max(1, Math.round(width * 0.75));
+        smallerCanvas.height = Math.max(1, Math.round(height * 0.75));
+        const smallerContext = smallerCanvas.getContext("2d", { alpha: false });
+
+        if (smallerContext) {
+            smallerContext.fillStyle = "#ffffff";
+            smallerContext.fillRect(0, 0, smallerCanvas.width, smallerCanvas.height);
+            smallerContext.drawImage(image, 0, 0, smallerCanvas.width, smallerCanvas.height);
+            prepared = canvasToDataUrl(smallerCanvas, 0.60);
+        }
+    }
+
+    return prepared;
 }
 
 function installImageLayoutStyles() {
@@ -91,17 +151,21 @@ function installImageLayoutStyles() {
         }
 
         .message-image {
-            display: block;
-            width: min(100%, 360px);
-            height: auto;
-            max-height: 360px;
-            object-fit: contain;
+            display: block !important;
+            width: min(100%, 360px) !important;
+            max-width: 360px !important;
+            height: auto !important;
+            max-height: 360px !important;
+            object-fit: contain !important;
             border-radius: 16px;
             margin: 0 0 8px;
         }
 
         .message.user .message-image {
-            max-width: min(100%, 360px);
+            width: min(100%, 360px) !important;
+            max-width: 360px !important;
+            height: auto !important;
+            max-height: 360px !important;
         }
     `;
     document.head.appendChild(style);
@@ -125,6 +189,11 @@ function showPreview(dataUrl) {
     const image = document.createElement("img");
     image.src = dataUrl;
     image.alt = "Imagem selecionada para análise";
+    image.width = 64;
+    image.height = 64;
+    image.style.width = "64px";
+    image.style.height = "64px";
+    image.style.objectFit = "cover";
     preview.appendChild(image);
 
     const remove = document.createElement("button");
@@ -152,17 +221,16 @@ async function handleImage(file) {
     }
 
     try {
-        // O Data URL é criado diretamente a partir do File entregue
-        // pelo seletor. Assim, o preview e o payload usam exatamente
-        // os mesmos bytes da imagem escolhida.
-        const dataUrl = await fileToDataUrl(file);
+        const originalDataUrl = await fileToDataUrl(file);
+        const dataUrl = await prepareVisionImage(originalDataUrl);
 
         window.neuralImageDataUrl = dataUrl;
         window.neuralImageFile = {
             name: file.name || "imagem",
-            type: file.type,
+            type: "image/jpeg",
             size: file.size,
-            lastModified: file.lastModified || 0
+            lastModified: file.lastModified || 0,
+            originalType: file.type
         };
 
         showPreview(dataUrl);
@@ -188,8 +256,6 @@ function createFreshImageInput() {
     input.accept = ACCEPTED_TYPES.join(",");
     input.hidden = true;
 
-    // Um input novo por tentativa evita que o Android/Google Fotos
-    // reutilize o File de uma seleção anterior.
     input.addEventListener("change", async () => {
         const file = input.files?.[0] || null;
         await handleImage(file);
