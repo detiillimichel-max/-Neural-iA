@@ -26,10 +26,6 @@ const backButton = document.getElementById("backButton");
 let selectedMode = NEURAL_MODES.chat.id;
 let isBusy = false;
 
-// ==========================================================
-// Layout
-// ==========================================================
-
 function syncComposerSpace() {
     if (!messages || !composer) return;
 
@@ -47,12 +43,6 @@ function scrollToLatest() {
     });
 }
 
-// ==========================================================
-// Mensagens
-// ==========================================================
-// imageDataUrl é opcional e serve para manter a imagem anexada
-// visualmente na mensagem do usuário depois do envio.
-
 function addMessage(text, type = "ai", imageDataUrl = null) {
     if (!messages) return null;
 
@@ -65,6 +55,16 @@ function addMessage(text, type = "ai", imageDataUrl = null) {
         image.src = imageDataUrl;
         image.alt = "Imagem enviada para análise";
         image.loading = "lazy";
+
+        // Limite visual explícito para não depender apenas do CSS externo.
+        image.style.display = "block";
+        image.style.width = "min(100%, 360px)";
+        image.style.maxWidth = "360px";
+        image.style.height = "auto";
+        image.style.maxHeight = "360px";
+        image.style.objectFit = "contain";
+        image.style.borderRadius = "16px";
+
         div.appendChild(image);
     }
 
@@ -135,18 +135,9 @@ function selectMode(mode) {
     closePanels();
 }
 
-// ==========================================================
-// Envio para a camada neural-api.js
-// ==========================================================
-
 async function sendMessage() {
     if (isBusy || !input) return;
 
-    // Capturamos a imagem ANTES de limpar o composer.
-    // A mesma referência é usada para:
-    // 1. enviar à Edge Function;
-    // 2. registrar a imagem na mensagem do usuário;
-    // 3. limpar o anexo somente depois da resposta válida.
     const imageDataUrl = window.neuralImageDataUrl || null;
     const typedText = input.value.trim();
     const text = typedText || (
@@ -157,8 +148,6 @@ async function sendMessage() {
 
     if (!text) return;
 
-    // A imagem agora fica registrada dentro do histórico do chat.
-    // Portanto ela não desaparece quando o preview do composer é limpo.
     addMessage(
         typedText || "Analisei a imagem selecionada.",
         "user",
@@ -172,8 +161,6 @@ async function sendMessage() {
     setBusy(true);
 
     try {
-        // Imagem => contrato explícito de Visão.
-        // Texto => modo atualmente selecionado.
         const result = imageDataUrl
             ? await askNeural({
                 prompt: text,
@@ -192,9 +179,6 @@ async function sendMessage() {
                 result?.error || "Não foi possível obter uma resposta agora.",
                 "ai error"
             );
-
-            // Em caso de erro, NÃO apagamos a imagem.
-            // O usuário ainda pode tentar novamente.
             return;
         }
 
@@ -203,8 +187,6 @@ async function sendMessage() {
             "ai"
         );
 
-        // Só depois de uma resposta válida o anexo do composer é limpo.
-        // A cópia visual já permanece na mensagem do usuário.
         if (imageDataUrl && window.neuralImage?.clear) {
             window.neuralImage.clear();
         }
@@ -217,8 +199,6 @@ async function sendMessage() {
             error?.message || "Não foi possível comunicar com o Neural-iA.",
             "ai error"
         );
-
-        // Não limpar a imagem em caso de falha inesperada.
     } finally {
         setBusy(false);
         syncComposerSpace();
@@ -226,10 +206,6 @@ async function sendMessage() {
         input.focus();
     }
 }
-
-// ==========================================================
-// Nova conversa
-// ==========================================================
 
 function startNewChat() {
     if (!messages) return;
@@ -260,10 +236,6 @@ function startNewChat() {
     scrollToLatest();
 }
 
-// ==========================================================
-// Navegação
-// ==========================================================
-
 function goBack() {
     if (window.history.length > 1) {
         window.history.back();
@@ -272,10 +244,6 @@ function goBack() {
 
     window.location.href = "../../index.html";
 }
-
-// ==========================================================
-// Microfone
-// ==========================================================
 
 function setupMicrophone() {
     if (!microphoneButton) return;
@@ -299,17 +267,11 @@ function setupMicrophone() {
     });
 }
 
-// ==========================================================
-// Ferramentas
-// ==========================================================
-
 function setupToolButtons() {
     document.querySelectorAll("[data-close-tools]").forEach((button) => {
         button.addEventListener("click", closePanels);
     });
 
-    // Imagem já é tratada pelo image-tool.js.
-    // Os demais módulos continuam como placeholders até a próxima etapa.
     document.querySelectorAll("[data-tool]:not([data-tool=\"image\"])").forEach((button) => {
         button.addEventListener("click", () => {
             const tool = button.dataset.tool;
@@ -321,10 +283,6 @@ function setupToolButtons() {
         });
     });
 }
-
-// ==========================================================
-// Eventos
-// ==========================================================
 
 if (sendButton) sendButton.addEventListener("click", sendMessage);
 
